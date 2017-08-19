@@ -137,7 +137,7 @@ func TestFirstpageTrailer(t *testing.T) {
 		t.Fatal(ret)
 	}
 	if string(left.Join()) != "dummy" {
-		t.Fatal(ret)
+		t.Fatal(left)
 	}
 }
 

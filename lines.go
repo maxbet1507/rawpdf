@@ -19,7 +19,7 @@ func (s line) Hex() string {
 }
 
 func (s line) String() string {
-	return strings.TrimRight(string(s.Bytes()), "\r\n")
+	return strings.TrimRight(string(s.Bytes()), " \r\n")
 }
 
 // type line []byte
@@ -49,7 +49,7 @@ func newLines(v []byte) lines {
 				offset: offset,
 				length: length,
 			})
-			offset, length = length, 0
+			offset, length = offset+length, 0
 		}
 	}
 	if length > 0 {

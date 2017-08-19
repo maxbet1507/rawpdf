@@ -49,7 +49,7 @@ func newFirstpageTrailer(lines lines) (*trailer, lines, error) {
 	return &trailer{
 		Start:      start,
 		Dictionary: dictionary,
-	}, lines[pos:], nil
+	}, lines[pos+1:], nil
 }
 
 func newMainTrailer(lines lines) (*trailer, lines, error) {

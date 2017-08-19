@@ -18,7 +18,7 @@ func TestMainTrailer(t *testing.T) {
 		[]byte("%%EOF"),
 	}, []byte{0x0d, 0x0a})
 
-	ret, err := newMainTrailer(bin)
+	ret, left, err := newMainTrailer(newLines(bin))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,6 +27,9 @@ func TestMainTrailer(t *testing.T) {
 		t.Fatal(ret)
 	}
 	if ret.Dictionary != "<</Size 1234\r\n/Test true>>\r\n" {
+		t.Fatal(ret)
+	}
+	if string(left.Join()) != "dummy\r\n" {
 		t.Fatal(ret)
 	}
 }
@@ -42,7 +45,7 @@ func TestMainTrailerErrorTooShortLines(t *testing.T) {
 		[]byte("%%EOF"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newMainTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newMainTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }
@@ -58,7 +61,7 @@ func TestMainTrailerErrorCheckEOF(t *testing.T) {
 		// []byte("%%EOF"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newMainTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newMainTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }
@@ -74,7 +77,7 @@ func TestMainTrailerErrorConvertStartXref(t *testing.T) {
 		[]byte("%%EOF"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newMainTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newMainTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }
@@ -90,7 +93,7 @@ func TestMainTrailerErrorCheckStartXref(t *testing.T) {
 		[]byte("%%EOF"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newMainTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newMainTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }
@@ -106,7 +109,7 @@ func TestMainTrailerErrorCheckTrailer(t *testing.T) {
 		[]byte("%%EOF"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newMainTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newMainTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }
@@ -122,7 +125,7 @@ func TestFirstpageTrailer(t *testing.T) {
 		[]byte("dummy"),
 	}, []byte{0x0d, 0x0a})
 
-	ret, err := newFirstpageTrailer(bin)
+	ret, left, err := newFirstpageTrailer(newLines(bin))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,6 +134,9 @@ func TestFirstpageTrailer(t *testing.T) {
 		t.Fatal(ret)
 	}
 	if ret.Dictionary != "<</Size 1234\r\n/Test true>>\r\n" {
+		t.Fatal(ret)
+	}
+	if string(left.Join()) != "dummy" {
 		t.Fatal(ret)
 	}
 }
@@ -146,7 +152,7 @@ func TestFirstpageTrailerTooShortLines(t *testing.T) {
 		// []byte("dummy"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newFirstpageTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newFirstpageTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }
@@ -162,7 +168,7 @@ func TestFirstpageTrailerErrorCheckTrailer(t *testing.T) {
 		[]byte("dummy"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newFirstpageTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newFirstpageTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }
@@ -178,7 +184,7 @@ func TestFirstpageTrailerErrorCheckStartXref(t *testing.T) {
 		[]byte("dummy"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newFirstpageTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newFirstpageTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }
@@ -194,7 +200,7 @@ func TestFirstpageTrailerErrorConvertStartXref(t *testing.T) {
 		[]byte("dummy"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newFirstpageTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newFirstpageTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }
@@ -210,7 +216,7 @@ func TestFirstpageTrailerErrorCheckEOF(t *testing.T) {
 		[]byte("dummy"),
 	}, []byte{0x0d, 0x0a})
 
-	if _, err := newFirstpageTrailer(bin); errors.Cause(err) != errInvalidTrailer {
+	if _, _, err := newFirstpageTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
 		t.Fatal(err)
 	}
 }

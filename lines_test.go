@@ -1,7 +1,9 @@
 package rawpdf
 
-import "testing"
-import "encoding/hex"
+import (
+	"encoding/hex"
+	"testing"
+)
 
 func TestLines(t *testing.T) {
 	buf, _ := hex.DecodeString("000102030405060708090a0b0c0d0e0f0a3020")

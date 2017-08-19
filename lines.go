@@ -1,8 +1,10 @@
 package rawpdf
 
-import "strings"
-import "encoding/hex"
-import "bytes"
+import (
+	"bytes"
+	"encoding/hex"
+	"strings"
+)
 
 type line struct {
 	data   []byte

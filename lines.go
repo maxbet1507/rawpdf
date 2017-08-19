@@ -1,36 +1,63 @@
 package rawpdf
 
-import (
-	"bytes"
-	"strings"
-)
+import "strings"
+import "encoding/hex"
+import "bytes"
 
-type line []byte
-type lines []line
-
-func (s line) String() string {
-	return strings.TrimRight(string(s), "\r\n")
+type line struct {
+	data   []byte
+	offset int
+	length int
 }
 
+func (s line) Bytes() []byte {
+	return s.data[s.offset : s.offset+s.length]
+}
+
+func (s line) Hex() string {
+	return hex.EncodeToString(s.Bytes())
+}
+
+func (s line) String() string {
+	return strings.TrimRight(string(s.Bytes()), "\r\n")
+}
+
+// type line []byte
+type lines []line
+
 func (s lines) Join() []byte {
-	lst := [][]byte{}
+	buf := new(bytes.Buffer)
+
 	for _, val := range s {
-		lst = append(lst, val)
+		// bytes.Bufferはエラーを返さない
+		buf.Write(val.Bytes())
 	}
 
-	return bytes.Join(lst, nil)
+	return buf.Bytes()
 }
 
 func newLines(v []byte) lines {
 	ret := lines{}
 
-	vals := bytes.Split(v, []byte{0x0a})
-	for idx, val := range vals {
-		if idx != len(vals)-1 {
-			ret = append(ret, line(append(val, 0x0a)))
-		} else {
-			ret = append(ret, line(val))
+	offset := 0
+	length := 0
+	for _, val := range v {
+		length++
+		if val == 0x0a {
+			ret = append(ret, line{
+				data:   v,
+				offset: offset,
+				length: length,
+			})
+			offset, length = length, 0
 		}
+	}
+	if length > 0 {
+		ret = append(ret, line{
+			data:   v,
+			offset: offset,
+			length: length,
+		})
 	}
 
 	return ret

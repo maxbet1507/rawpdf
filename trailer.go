@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/maxbet1507/rawpdf/objects"
+
 	"github.com/pkg/errors"
 )
 
@@ -13,7 +15,7 @@ var (
 
 type trailer struct {
 	Start      int
-	Dictionary string
+	Dictionary map[string]interface{}
 }
 
 func newFirstpageTrailer(lines lines) (*trailer, lines, error) {
@@ -33,7 +35,10 @@ func newFirstpageTrailer(lines lines) (*trailer, lines, error) {
 			return nil, nil, errors.Wrap(errInvalidTrailer, "check startref")
 		}
 	}
-	dictionary := string(lines[beginpos:pos].Join())
+	dictionary, err := objects.Unmarshal(lines[beginpos:pos].Join())
+	if _, ok := dictionary.(map[string]interface{}); !ok || err != nil {
+		return nil, nil, errors.Wrap(errInvalidTrailer, "trailer dictionary")
+	}
 	pos++
 
 	start, err := strconv.Atoi(lines[pos].String())
@@ -48,7 +53,7 @@ func newFirstpageTrailer(lines lines) (*trailer, lines, error) {
 
 	return &trailer{
 		Start:      start,
-		Dictionary: dictionary,
+		Dictionary: dictionary.(map[string]interface{}),
 	}, lines[pos+1:], nil
 }
 
@@ -82,8 +87,13 @@ func newMainTrailer(lines lines) (*trailer, lines, error) {
 		}
 	}
 
+	dictionary, err := objects.Unmarshal(lines[pos+1 : endpos+1].Join())
+	if _, ok := dictionary.(map[string]interface{}); !ok || err != nil {
+		return nil, nil, errors.Wrap(errInvalidTrailer, "trailer dictionary")
+	}
+
 	return &trailer{
 		Start:      start,
-		Dictionary: string(lines[pos+1 : endpos+1].Join()),
+		Dictionary: dictionary.(map[string]interface{}),
 	}, lines[:pos], nil
 }

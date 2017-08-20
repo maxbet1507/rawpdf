@@ -26,7 +26,7 @@ func TestMainTrailer(t *testing.T) {
 	if ret.Start != 5678 {
 		t.Fatal(ret)
 	}
-	if ret.Dictionary != "<</Size 1234\r\n/Test true>>\r\n" {
+	if len(ret.Dictionary) != 2 || ret.Dictionary["/Size"] != "1234" || ret.Dictionary["/Test"] != true {
 		t.Fatal(ret)
 	}
 	if string(left.Join()) != "dummy\r\n" {
@@ -114,6 +114,23 @@ func TestMainTrailerErrorCheckTrailer(t *testing.T) {
 	}
 }
 
+func TestMainTrailerErrorDictionary(t *testing.T) {
+	bin := bytes.Join([][]byte{
+		[]byte("dummy"),
+		[]byte("trailer"),
+		[]byte("<</Size 1234"),
+		[]byte("<test>"),
+		[]byte("/Test true>>"),
+		[]byte("startxref"),
+		[]byte("5678"),
+		[]byte("%%EOF"),
+	}, []byte{0x0d, 0x0a})
+
+	if _, _, err := newMainTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
+		t.Fatal(err)
+	}
+}
+
 func TestFirstpageTrailer(t *testing.T) {
 	bin := bytes.Join([][]byte{
 		[]byte("trailer"),
@@ -133,7 +150,7 @@ func TestFirstpageTrailer(t *testing.T) {
 	if ret.Start != 5678 {
 		t.Fatal(ret)
 	}
-	if ret.Dictionary != "<</Size 1234\r\n/Test true>>\r\n" {
+	if len(ret.Dictionary) != 2 || ret.Dictionary["/Size"] != "1234" || ret.Dictionary["/Test"] != true {
 		t.Fatal(ret)
 	}
 	if string(left.Join()) != "dummy" {
@@ -213,6 +230,23 @@ func TestFirstpageTrailerErrorCheckEOF(t *testing.T) {
 		[]byte("startxref"),
 		[]byte("5678"),
 		// []byte("%%EOF"),
+		[]byte("dummy"),
+	}, []byte{0x0d, 0x0a})
+
+	if _, _, err := newFirstpageTrailer(newLines(bin)); errors.Cause(err) != errInvalidTrailer {
+		t.Fatal(err)
+	}
+}
+
+func TestFirstpageTrailerErrorDictionary(t *testing.T) {
+	bin := bytes.Join([][]byte{
+		[]byte("trailer"),
+		[]byte("<</Size 1234"),
+		[]byte("<test>"),
+		[]byte("/Test true>>"),
+		[]byte("startxref"),
+		[]byte("5678"),
+		[]byte("%%EOF"),
 		[]byte("dummy"),
 	}, []byte{0x0d, 0x0a})
 

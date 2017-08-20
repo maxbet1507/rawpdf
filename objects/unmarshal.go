@@ -2,7 +2,10 @@ package objects
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 var (
@@ -26,13 +29,15 @@ var (
 		'/': struct{}{},
 		// '%': struct{}{},
 	}
+
+	errUnmarshalFailure = fmt.Errorf("unmarshal failure")
 )
 
 type tokenType int
 
 const (
 	typeInvalid tokenType = iota
-	typeUnknown
+	typeIdent
 
 	typeComment
 	typeLiteralString
@@ -103,30 +108,30 @@ func tokenizer(v []byte) <-chan token {
 
 		for c := range cch {
 			if _, ok := whitespaces[c]; ok {
-				flush(typeUnknown)
+				flush(typeIdent)
 				continue
 			}
 
 			if _, ok := delimiters[c]; ok {
-				flush(typeUnknown)
-				wch <- token{Value: string(c), Type: typeUnknown}
+				flush(typeIdent)
+				wch <- token{Value: string(c), Type: typeIdent}
 				continue
 			}
 
 			switch c {
 			case '%':
-				flush(typeUnknown)
+				flush(typeIdent)
 				buf = append(buf, c)
 				tokenREM()
 			case '(':
-				flush(typeUnknown)
+				flush(typeIdent)
 				buf = append(buf, c)
 				tokenLPAREN()
 			default:
 				buf = append(buf, c)
 			}
 		}
-		flush(typeUnknown)
+		flush(typeIdent)
 
 		close(wch)
 	}()
@@ -136,7 +141,7 @@ func tokenizer(v []byte) <-chan token {
 		tokenGTR := func(buf []string) {
 			if c1, ok := <-wch; ok {
 				buf = append(buf, c1.Value)
-				if c1.Type == typeUnknown && c1.Value == ">" {
+				if c1.Type == typeIdent && c1.Value == ">" {
 					tch <- token{Value: strings.Join(buf, ""), Type: typeDictionaryEnd}
 					return
 				}
@@ -148,15 +153,15 @@ func tokenizer(v []byte) <-chan token {
 		tokenLSS := func(buf []string) {
 			if c1, ok := <-wch; ok {
 				buf = append(buf, c1.Value)
-				if c1.Type == typeUnknown && c1.Value == "<" {
+				if c1.Type == typeIdent && c1.Value == "<" {
 					tch <- token{Value: strings.Join(buf, ""), Type: typeDictionaryBegin}
 					return
 				}
 
-				if _, err := hex.DecodeString(c1.Value); c1.Type == typeUnknown && err == nil {
+				if _, err := hex.DecodeString(c1.Value); c1.Type == typeIdent && err == nil {
 					if c2, ok := <-wch; ok {
 						buf = append(buf, c2.Value)
-						if c2.Type == typeUnknown && c2.Value == ">" {
+						if c2.Type == typeIdent && c2.Value == ">" {
 							tch <- token{Value: strings.Join(buf, ""), Type: typeHexdecimalString}
 							return
 						}
@@ -170,7 +175,7 @@ func tokenizer(v []byte) <-chan token {
 		tokenQUO := func(buf []string) {
 			if c1, ok := <-wch; ok {
 				buf = append(buf, c1.Value)
-				if c1.Type == typeUnknown {
+				if c1.Type == typeIdent {
 					tch <- token{Value: strings.Join(buf, ""), Type: typeName} // name
 					return
 				}
@@ -179,54 +184,128 @@ func tokenizer(v []byte) <-chan token {
 			tch <- token{Value: strings.Join(buf, ""), Type: typeInvalid}
 		}
 
+		buf := []string{}
+
+		flushbuf := func() {
+			if val := strings.Join(buf, " "); len(val) > 0 {
+				tch <- token{Value: val, Type: typeIdent}
+			}
+			buf = []string{}
+		}
+
 		for w := range wch {
-			if w.Type != typeUnknown {
+			if w.Type != typeIdent {
+				flushbuf()
 				tch <- w
 				continue
 			}
 
 			switch w.Value {
 			case "<":
+				flushbuf()
 				tokenLSS([]string{w.Value})
 
 			case ">":
+				flushbuf()
 				tokenGTR([]string{w.Value})
 
 			case "/":
+				flushbuf()
 				tokenQUO([]string{w.Value})
 
 			case "[":
+				flushbuf()
 				tch <- token{Value: w.Value, Type: typeArrayBegin}
 
 			case "]":
+				flushbuf()
 				tch <- token{Value: w.Value, Type: typeArrayEnd}
 
 			case "true":
+				flushbuf()
 				tch <- token{Value: w.Value, Type: typeTrue}
 
 			case "false":
+				flushbuf()
 				tch <- token{Value: w.Value, Type: typeFalse}
 
 			case "null":
+				flushbuf()
 				tch <- token{Value: w.Value, Type: typeNull}
 
 			default:
-
-				tch <- w
+				buf = append(buf, w.Value)
 			}
 		}
+		flushbuf()
 		close(tch)
 	}()
 
 	return tch
 }
 
+func toObject(tn <-chan token) (interface{}, error) {
+	if t, ok := <-tn; ok {
+		switch t.Type {
+		case typeComment:
+			return toObject(tn)
+
+		case typeTrue:
+			return true, nil
+
+		case typeFalse:
+			return false, nil
+
+		case typeNull:
+			return nil, nil
+
+		case typeName, typeLiteralString, typeHexdecimalString, typeIdent:
+			return t.Value, nil
+
+		case typeDictionaryBegin:
+			ret := map[string]interface{}{}
+
+			for t := range tn {
+				switch t.Type {
+				case typeComment:
+				case typeName:
+					val, err := toObject(tn)
+					if err != nil {
+						return val, err
+					}
+					ret[t.Value] = val
+
+				case typeDictionaryEnd:
+					return ret, nil
+
+				default:
+					return nil, errors.Wrap(errUnmarshalFailure, "dictionary")
+				}
+			}
+
+		case typeArrayBegin:
+			ret := []interface{}{}
+
+			for {
+				val, err := toObject(tn)
+				if err != nil || val == typeArrayEnd {
+					return ret, err
+				}
+				ret = append(ret, val)
+			}
+
+		case typeArrayEnd:
+			return typeArrayEnd, nil
+
+		default:
+			return nil, errors.Wrap(errUnmarshalFailure, "invalid token")
+		}
+	}
+
+	return nil, errors.Wrap(errUnmarshalFailure, "end")
+}
+
 // Unmarshal -
-// func Unmarshal(v []byte) (interface{}, error) {
-
-// 	for t := range tokenizer(v) {
-// 		fmt.Println(t)
-// 	}
-
-// 	return nil, nil
-// }
+func Unmarshal(v []byte) (interface{}, error) {
+	return toObject(tokenizer(v))
+}

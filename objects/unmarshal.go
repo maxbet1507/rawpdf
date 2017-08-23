@@ -293,10 +293,10 @@ func toObject(tn <-chan token) (interface{}, error) {
 
 		case typeIdent:
 			if intnum, err := strconv.ParseInt(t.Value, 10, 64); err == nil {
-				return intnum, nil
+				return int(intnum), nil
 			}
 			if realnum, err := strconv.ParseFloat(t.Value, 64); err == nil {
-				return realnum, nil
+				return float64(realnum), nil
 			}
 			return nil, errors.Wrapf(errUnmarshalFailure, "ident:<%s>", t.Value)
 

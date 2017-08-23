@@ -26,7 +26,7 @@ func TestMainTrailer(t *testing.T) {
 	if ret.Start != 5678 {
 		t.Fatal(ret)
 	}
-	if len(ret.Dictionary) != 2 || ret.Dictionary["/Size"] != "1234" || ret.Dictionary["/Test"] != true {
+	if len(ret.Dictionary) != 2 || ret.Dictionary["/Size"] != 1234 || ret.Dictionary["/Test"] != true {
 		t.Fatal(ret)
 	}
 	if string(left.Join()) != "dummy\r\n" {
@@ -150,7 +150,7 @@ func TestFirstpageTrailer(t *testing.T) {
 	if ret.Start != 5678 {
 		t.Fatal(ret)
 	}
-	if len(ret.Dictionary) != 2 || ret.Dictionary["/Size"] != "1234" || ret.Dictionary["/Test"] != true {
+	if len(ret.Dictionary) != 2 || ret.Dictionary["/Size"] != 1234 || ret.Dictionary["/Test"] != true {
 		t.Fatal(ret)
 	}
 	if string(left.Join()) != "dummy" {

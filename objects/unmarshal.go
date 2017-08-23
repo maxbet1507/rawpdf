@@ -3,6 +3,8 @@ package objects
 import (
 	"encoding/hex"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -31,6 +33,8 @@ var (
 	}
 
 	errUnmarshalFailure = fmt.Errorf("unmarshal failure")
+
+	reIndirect = regexp.MustCompile("^(\\d+) (\\d+) R$")
 )
 
 type tokenType int
@@ -49,6 +53,7 @@ const (
 	typeArrayBegin
 	typeArrayEnd
 
+	typeIndirect
 	typeName
 	typeTrue
 	typeFalse
@@ -187,7 +192,7 @@ func tokenizer(v []byte) <-chan token {
 		buf := []string{}
 
 		flushbuf := func() {
-			if val := strings.Join(buf, " "); len(val) > 0 {
+			for _, val := range buf {
 				tch <- token{Value: val, Type: typeIdent}
 			}
 			buf = []string{}
@@ -233,6 +238,27 @@ func tokenizer(v []byte) <-chan token {
 				flushbuf()
 				tch <- token{Value: w.Value, Type: typeNull}
 
+			case "R":
+				tt := typeIdent
+				tmp := []string{}
+
+				if len(buf) >= 2 {
+					buf, tmp = buf[:len(buf)-2], buf[len(buf)-2:]
+					flushbuf()
+					buf = append(tmp, w.Value)
+
+					_, err1 := strconv.ParseInt(buf[0], 10, 64)
+					_, err2 := strconv.ParseInt(buf[1], 10, 64)
+					if err1 == nil && err2 == nil {
+						tt = typeIndirect
+					}
+				} else {
+					buf = append(buf, w.Value)
+				}
+
+				tch <- token{Value: strings.Join(buf, " "), Type: tt}
+				buf = []string{}
+
 			default:
 				buf = append(buf, w.Value)
 			}
@@ -259,7 +285,22 @@ func toObject(tn <-chan token) (interface{}, error) {
 		case typeNull:
 			return nil, nil
 
-		case typeName, typeLiteralString, typeHexdecimalString, typeIdent:
+		case typeIndirect:
+			matches := reIndirect.FindStringSubmatch(t.Value)
+			onum, _ := strconv.ParseUint(matches[1], 10, 64)
+			gnum, _ := strconv.ParseUint(matches[2], 10, 64)
+			return Indirect{ObjectNumber: uint(onum), GenerationNumber: uint(gnum)}, nil
+
+		case typeIdent:
+			if intnum, err := strconv.ParseInt(t.Value, 10, 64); err == nil {
+				return intnum, nil
+			}
+			if realnum, err := strconv.ParseFloat(t.Value, 64); err == nil {
+				return realnum, nil
+			}
+			return nil, errors.Wrapf(errUnmarshalFailure, "ident:<%s>", t.Value)
+
+		case typeName, typeLiteralString, typeHexdecimalString:
 			return t.Value, nil
 
 		case typeDictionaryBegin:

@@ -13,7 +13,7 @@ func TestTokenizer(t *testing.T) {
 		[]byte("<<"),
 		[]byte("%/Name [1234 true false null <00> (test)]"),
 		[]byte{0x0a},
-		[]byte("/Name [1234 true false null <00> (test\\\\dummy)]"),
+		[]byte("/Name [1234 -0.1 true false null <00> (test\\\\dummy)]"),
 		[]byte(">>"),
 	}, nil)
 
@@ -32,6 +32,9 @@ func TestTokenizer(t *testing.T) {
 		t.Fatal(tkn)
 	}
 	if tkn := <-ret; tkn.Type != typeIdent || tkn.Value != "1234" {
+		t.Fatal(tkn)
+	}
+	if tkn := <-ret; tkn.Type != typeIdent || tkn.Value != "-0.1" {
 		t.Fatal(tkn)
 	}
 	if tkn := <-ret; tkn.Type != typeTrue {
@@ -101,7 +104,7 @@ func TestUnmarshal(t *testing.T) {
 		[]byte("<<"),
 		[]byte("%/Name [1234 true false null <00> (test)]"),
 		[]byte{0x0a},
-		[]byte("/Name [1234 true false null %comment"),
+		[]byte("/Name [1234 -0.1 true false null 10 20 R %comment"),
 		[]byte{0x0a},
 		[]byte("<00> (test\\\\dummy)]"),
 		[]byte(">>"),
@@ -113,8 +116,8 @@ func TestUnmarshal(t *testing.T) {
 	}
 
 	bin, _ := json.Marshal(ret)
-	if string(bin) != `{"/Name":["1234",true,false,null,"\u003c00\u003e","(test\\\\dummy)"]}` {
-		t.Fatal(ret)
+	if val := string(bin); val != `{"/Name":[1234,-0.1,true,false,null,"10 20 R","\u003c00\u003e","(test\\\\dummy)"]}` {
+		t.Fatal(val)
 	}
 }
 
@@ -123,7 +126,7 @@ func TestUnmarshalErrorEnd(t *testing.T) {
 		[]byte("<<"),
 		[]byte("%/Name [1234 true false null <00> (test)]"),
 		[]byte{0x0a},
-		[]byte("/Name [1234 true false null %comment"),
+		[]byte("/Name [1234 -0.1 true false null 10 20 R %comment"),
 		[]byte{0x0a},
 		[]byte("<00> (test\\\\dummy)]"),
 		// []byte(">>"),
@@ -139,7 +142,7 @@ func TestUnmarshalErrorDictionary(t *testing.T) {
 		[]byte("<<"),
 		[]byte("%/Name [1234 true false null <00> (test)]"),
 		[]byte{0x0a},
-		[]byte("/Name [1234 true false null %comment"),
+		[]byte("/Name [1234 -0.1 true false null 10 20 R %comment"),
 		[]byte{0x0a},
 		[]byte("<00> (test\\\\dummy)]"),
 		[]byte("1234"),
@@ -156,9 +159,25 @@ func TestUnmarshalErrorInvalidToken(t *testing.T) {
 		[]byte("<<"),
 		[]byte("%/Name [1234 true false null <00> (test)]"),
 		[]byte{0x0a},
-		[]byte("/Name [1234 true false null %comment"),
+		[]byte("/Name [1234 -0.1 true false null 10 20 R %comment"),
 		[]byte{0x0a},
 		[]byte("/("),
+		[]byte("<00> (test\\\\dummy)]"),
+		[]byte(">>"),
+	}, nil)
+
+	if _, err := Unmarshal(src); errors.Cause(err) != errUnmarshalFailure {
+		t.Fatal(err)
+	}
+}
+
+func TestUnmarshalErrorInvalidIndirect(t *testing.T) {
+	src := bytes.Join([][]byte{
+		[]byte("<<"),
+		[]byte("%/Name [1234 true false null <00> (test)]"),
+		[]byte{0x0a},
+		[]byte("/Name [1234 -0.1 true false null 10 R %comment"),
+		[]byte{0x0a},
 		[]byte("<00> (test\\\\dummy)]"),
 		[]byte(">>"),
 	}, nil)
